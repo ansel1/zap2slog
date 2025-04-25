@@ -86,7 +86,7 @@ func (h *ZapHandler) Handle(ctx context.Context, record slog.Record) error {
 func (h *ZapHandler) toFields(record slog.Record) ([]zapcore.Field, string) {
 	cap := len(h.fields) + record.NumAttrs()
 	if cap <= 0 {
-		return nil, ""
+		return nil, h.loggerName
 	}
 
 	fields := make([]zapcore.Field, len(h.fields), cap)
@@ -113,8 +113,8 @@ func (h *ZapHandler) toFields(record slog.Record) ([]zapcore.Field, string) {
 
 func (h *ZapHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	fields, loggerName := h.attrsToFields(h.groups, attrs)
-	if len(fields) == 0 {
-		// all attrs ended up being elided
+	if len(fields) == 0 && loggerName == h.loggerName {
+		// all attrs ended up being elided and logger name didn't change
 		return h
 	}
 	return &ZapHandler{

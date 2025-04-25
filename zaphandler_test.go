@@ -803,6 +803,28 @@ func TestZapHandler_WithAttrsAndGroups(t *testing.T) {
 			},
 		},
 		{
+			name: "WithAttrs with only logger name",
+			opts: &ZapHandlerOptions{
+				LoggerNameKey: "logger",
+			},
+			setup: func(h *ZapHandler) slog.Handler {
+				return h.WithAttrs([]slog.Attr{
+					slog.String("logger", "mylogger"),
+				})
+			},
+			record: slog.Record{
+				Time:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				Level:   slog.LevelInfo,
+				Message: "test message",
+			},
+			wantEntry: zapcore.Entry{
+				Time:       time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+				Level:      zapcore.InfoLevel,
+				Message:    "test message",
+				LoggerName: "mylogger",
+			},
+		},
+		{
 			name: "WithAttrs with empty group",
 			setup: func(h *ZapHandler) slog.Handler {
 				return h.WithAttrs([]slog.Attr{
