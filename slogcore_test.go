@@ -1,6 +1,7 @@
 package zap2slog
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -85,6 +86,19 @@ func TestSlogCore_Write(t *testing.T) {
 	pc, file, line, ok := runtime.Caller(0)
 	require.True(t, ok)
 	wantSource := fmt.Sprintf("%s:%d", file, line)
+
+	// In go 1.25, the output of the text handler changed slightly if the record's source
+	// information was incomplete.  Before 1.25, the log line would include "source:0".  In
+	// 1.25, that field is omitted.  Since this library needs to work with both versions, I
+	// need to test which version I'm running in to know what string to expect in the test.
+	var b strings.Builder
+	h := slog.NewTextHandler(&b, &slog.HandlerOptions{AddSource: true})
+	r := slog.NewRecord(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC), slog.LevelInfo, "test message", 0)
+	require.NoError(t, h.Handle(context.Background(), r))
+
+	// the log line should be one of these two options.  If not, something else is wrong.
+	require.Contains(t, []string{"time=2024-01-01T12:00:00.000Z level=INFO source=:0 msg=\"test message\"\n", "time=2024-01-01T12:00:00.000Z level=INFO msg=\"test message\"\n"}, b.String())
+	expectedLogLineWithIncompleteSource := b.String()
 
 	tests := []struct {
 		name      string
@@ -440,7 +454,7 @@ func TestSlogCore_Write(t *testing.T) {
 				Message: "test message",
 				Caller:  zapcore.EntryCaller{Defined: true, PC: 0},
 			},
-			want: "time=2024-01-01T12:00:00.000Z level=INFO source=:0 msg=\"test message\"\n",
+			want: expectedLogLineWithIncompleteSource,
 		},
 		{
 			name:      "with source info but undefined caller",
@@ -451,7 +465,7 @@ func TestSlogCore_Write(t *testing.T) {
 				Message: "test message",
 				Caller:  zapcore.EntryCaller{Defined: false},
 			},
-			want: "time=2024-01-01T12:00:00.000Z level=INFO source=:0 msg=\"test message\"\n",
+			want: expectedLogLineWithIncompleteSource,
 		},
 		{
 			name: "object marshaler error",
